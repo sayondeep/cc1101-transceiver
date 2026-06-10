@@ -1,7 +1,7 @@
 # cc1101-transceiver
 ESPHome config for CC1101 RF Transceiver
 
-A complete ESPHome configuration for the **CC1101 Sub-1 GHz RF Transceiver** with an **ESP32-WROOM**, featuring signal learning, replay, and Home Assistant integration.
+A complete ESPHome configuration for the **CC1101 Sub-1 GHz RF Transceiver** with an **ESP32-C3**, featuring signal learning, replay, and Home Assistant integration.
 
 Learn and replay 433 MHz RF signals from remotes, blinds, outlets, and more — directly from Home Assistant.
 
@@ -22,10 +22,12 @@ Learn and replay 433 MHz RF signals from remotes, blinds, outlets, and more — 
 
 | Component | Description |
 |-----------|-------------|
-| ESP32-WROOM DevKit | Any ESP32 development board |
+| ESP32-C3-DevKitM-1 | Espressif ESP32-C3 development board (or any ESP32-C3 board) |
 | CC1101 Module | 433 MHz version (common green or blue PCB modules) |
 | Jumper Wires | 8 female-to-female dupont wires |
 | Antenna | 433 MHz antenna (17.3 cm wire or SMA antenna) |
+
+> **Note:** The ESP32-C3-DevKitM-1 is recommended. Other ESP32-C3 boards (e.g. SuperMini, XIAO) should also work — verify your board's available GPIO pinout before wiring.
 
 ---
 
@@ -36,41 +38,78 @@ Learn and replay 433 MHz RF signals from remotes, blinds, outlets, and more — 
 Uses separate pins for TX and RX — no mode switching needed.
 
 ```
- ESP32-WROOM                CC1101 Module
+ ESP32-C3-DevKitM-1         CC1101 Module
  ┌──────────┐              ┌──────────────┐
  │          │              │              │
  │     3V3  ├──── Red ─────┤ VCC          │
  │     GND  ├──── Black ───┤ GND          │
  │          │              │              │
- │  GPIO23  ├──── Orange ──┤ MOSI (SI)    │
- │  GPIO19  ├──── Yellow ──┤ MISO (SO)    │
- │  GPIO18  ├──── Green ───┤ SCK (SCLK)   │
- │   GPIO5  ├──── Purple ──┤ CSN (CS)     │
+ │   GPIO5  ├──── Orange ──┤ MOSI (SI)    │
+ │   GPIO3  ├──── Yellow ──┤ MISO (SO)    │
+ │   GPIO4  ├──── Green ───┤ SCK (SCLK)   │
+ │   GPIO0  ├──── Purple ──┤ CSN (CS)     │
  │          │              │              │
- │   GPIO4  ├──── Blue ────┤ GDO0 (TX)    │
+ │   GPIO1  ├──── Blue ────┤ GDO0 (TX)    │
  │   GPIO2  ├──── Cyan ────┤ GDO2 (RX)    │
  │          │              │              │
  └──────────┘              └──────────────┘
 ```
 
-| Wire | ESP32 Pin | CC1101 Pin | Function |
-|------|-----------|------------|----------|
+| Wire | ESP32-C3 Pin | CC1101 Pin | Function |
+|------|-------------|------------|----------|
 | Red | 3V3 | VCC | Power (3.3V only!) |
 | Black | GND | GND | Ground |
-| Orange | GPIO23 | MOSI | SPI Data Out |
-| Yellow | GPIO19 | MISO | SPI Data In |
-| Green | GPIO18 | SCK | SPI Clock |
-| Purple | GPIO5 | CSN | SPI Chip Select |
-| Blue | GPIO4 | GDO0 | TX Data |
+| Orange | GPIO5 | MOSI | SPI Data Out |
+| Yellow | GPIO3 | MISO | SPI Data In |
+| Green | GPIO4 | SCK | SPI Clock |
+| Purple | GPIO0 | CSN | SPI Chip Select |
+| Blue | GPIO1 | GDO0 | TX Data |
 | Cyan | GPIO2 | GDO2 | RX Data |
 
 > ⚠️ The CC1101 is a **3.3V device**. Do not connect to 5V — it will damage the module.
 
-> **Note:** If GPIO2 causes issues on your board (some have an onboard LED), use GPIO15, GPIO16, or GPIO17 instead.
+> **Why these pins?** On ESP32-C3, GPIO6–GPIO11 are internally connected to the SPI flash chip and must never be used for external peripherals. GPIO0–GPIO5 are the safest, most accessible alternative. See [ESP32-C3 Pin Notes](#esp32-c3-pin-notes) for details.
+
+> **GPIO2 note:** GPIO2 is a strapping pin on ESP32-C3, but it only controls JTAG debug port selection — it does **not** affect boot mode. It is safe to use for GDO2 in normal operation. If you experience issues, substitute GPIO10 (check your board's pinout first).
+
+Pin numbering may vary between modules. Always verify with your module's datasheet.
 
 ---
 
-Pin numbering may vary between modules. Always verify with your module's datasheet.
+## ESP32-C3 Pin Notes
+
+### Why GPIO6–GPIO11 Are Forbidden
+
+The ESP32-C3 routes its internal SPI flash through GPIO6–GPIO11 on the chip. Using any of these for an external peripheral will corrupt flash access, cause crashes, or prevent boot entirely.
+
+| GPIO Range | Status |
+|-----------|--------|
+| GPIO0–GPIO5 | ✅ Safe — general purpose, broken out on DevKitM-1 header |
+| GPIO6–GPIO11 | ❌ Reserved — connected to SPI flash chip internally |
+| GPIO12–GPIO21 | ✅ Safe — general purpose (GPIO18/GPIO19 are USB D-/D+ on DevKitM-1) |
+
+### Strapping Pins
+
+ESP32-C3 samples three pins at boot to decide operating mode. If a connected peripheral drives these pins at an unexpected level during power-up it can affect boot or debugging.
+
+| GPIO | Strapping Function | Impact | Safe as GDO2/CS? |
+|------|-------------------|--------|-----------------|
+| GPIO2 | JTAG source selection | Affects debug port only — **not boot mode** | ✅ Yes |
+| GPIO8 | ROM serial messages | Cosmetic only | ✅ Yes |
+| GPIO9 | Boot mode (HIGH = normal, LOW = download) | **Can enter download mode** | ⚠️ Avoid |
+
+This config uses GPIO2 for GDO2 (RX). CC1101's GDO2 goes low after power-up by default (chip-ready signal). This sets JTAG to the USB-JTAG interface — harmless for normal use; only relevant if you use hardware JTAG debugging.
+
+### Flashing
+
+The ESP32-C3-DevKitM-1 has two USB ports:
+
+| Port | Chip | Use |
+|------|------|-----|
+| **UART** (most boards: left port) | CP2102N USB-to-UART | First-time flashing, serial logs |
+| **USB** (most boards: right port) | Built-in USB-JTAG | Alternative flashing, JTAG debugging |
+
+Connect via the **UART port** for `esphome run` or initial flashing. After first flash, OTA updates work over WiFi.
 
 ---
 
@@ -79,8 +118,8 @@ Pin numbering may vary between modules. Always verify with your module's datashe
 ### Prerequisites
 
 - [ESPHome](https://esphome.io/) installed (via Home Assistant Add-on or standalone)
-- ESP32 board with USB cable
-- CC1101 module wired to ESP32
+- ESP32-C3 board with USB cable (connect to the UART/CP2102N port for first flash)
+- CC1101 module wired to ESP32-C3 per the table above
 
 
 ## Usage
@@ -128,7 +167,7 @@ You can paste this array directly into the YAML config as a permanent button.
 | Replay x3 | `mdi:replay` | Transmit 3 times with 50ms gaps |
 | Clear Learned Signal | `mdi:delete` | Clear signal from memory |
 | TX Test | `mdi:access-point` | Send a test signal |
-| Restart | | Reboot the ESP32 |
+| Restart | | Reboot the ESP32-C3 |
 
 ### Switch
 
@@ -250,15 +289,16 @@ Adjust in the `cc1101:` section of the YAML:
 
 ### CC1101 Not Detected
 
-- **"FF0F was found" error** — SPI wiring issue. Double-check MISO, MOSI, SCK, and CSN connections.
+- **"FF0F was found" error** — SPI wiring issue. Double-check MISO (GPIO3), MOSI (GPIO5), SCK (GPIO4), and CSN (GPIO0) connections.
 - Verify you're using **3.3V**, not 5V.
 - Use shorter jumper wires — long wires cause SPI failures.
+- On ESP32-C3: double-check that none of the wires are accidentally on GPIO6–GPIO11 (they share labels with adjacent header pins).
 
 ### Not Receiving Signals
 
 - Confirm the remote operates on **433.92 MHz** (some use 315 or 868 MHz).
 - Attach a proper antenna — a **17.3 cm** straight wire works for 433 MHz.
-- Check that GPIO2 isn't conflicting with your board's onboard LED.
+- On ESP32-C3: verify none of your wires are connected to GPIO6–GPIO11 (reserved for flash).
 - Try increasing `filter_bandwidth` to capture wider frequency deviations.
 
 ### Signals Captured But Replay Doesn't Work
@@ -296,6 +336,8 @@ Adjust in the `cc1101:` section of the YAML:
 - [ESPHome Remote Receiver](https://esphome.io/components/remote_receiver/)
 - [ESPHome Remote Transmitter](https://esphome.io/components/remote_transmitter/)
 - [CC1101 Datasheet (TI)](https://www.ti.com/lit/ds/symlink/cc1101.pdf)
+- [ESP32-C3-DevKitM-1 Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/hw-reference/esp32c3/user-guide-devkitm-1.html)
+- [ESP32-C3 Technical Reference Manual](https://www.espressif.com/sites/default/files/documentation/esp32-c3_technical_reference_manual_en.pdf)
 
 
 ---

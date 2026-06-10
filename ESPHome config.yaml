@@ -3,7 +3,7 @@ esphome:
   friendly_name: CC1101 RF Transceiver
 
 esp32:
-  board: esp32dev
+  board: esp32-c3-devkitm-1
   framework:
     type: arduino
 
@@ -12,10 +12,11 @@ wifi:
   password: !secret wifi_password
   
 logger:
+  hardware_uart: UART0
 
 api:
   encryption:
-    key: ""
+    key: "vymAf1bZ2nL6bgf0NDXtxg0AdZCXxLggP5r/126us3w="
 
 ota:
   - platform: esphome
@@ -38,14 +39,14 @@ globals:
 
 # SPI Bus
 spi:
-  clk_pin: GPIO18
-  mosi_pin: GPIO23
-  miso_pin: GPIO19
+  clk_pin: GPIO4
+  mosi_pin: GPIO5
+  miso_pin: GPIO3
 
 # CC1101 - Dual Pin Mode
 cc1101:
   id: cc1101_module
-  cs_pin: GPIO5
+  cs_pin: GPIO0
   frequency: 433.92MHz
   output_power: 10
   modulation_type: ASK/OOK
@@ -56,6 +57,7 @@ cc1101:
 remote_receiver:
   id: rf_receiver
   pin: GPIO2
+  # GPIO2 is a strapping pin on ESP32-C3 (JTAG source selection only, not boot mode).
   tolerance: 50%
   filter: 200us
   dump:
@@ -102,7 +104,7 @@ remote_receiver:
 # Remote Transmitter - connected to GDO0
 remote_transmitter:
   id: rf_transmitter
-  pin: GPIO4
+  pin: GPIO1
   carrier_duty_percent: 100%
   on_transmit:
     then:
@@ -192,6 +194,102 @@ button:
       - remote_transmitter.transmit_raw:
           carrier_frequency: 0Hz
           code: [500, -500, 500, -500, 500, -500, 500, -500, 500, -500]
+
+  - platform: template
+    name: "Power"
+    icon: "mdi:power"
+    on_press:
+      - repeat:
+          count: 5
+          then:
+            - remote_transmitter.transmit_raw:
+                carrier_frequency: 0Hz
+                code: [1189, -423, 407, -1204, 1183, -423, 380, -1228, 1183, -421, 1185, -423, 382, -1227, 1185, -422, 1186, -423, 380, -1229, 1181, -424, 381, -1230, 380, -1229, 380, -1229, 1185, -421, 1184, -422, 407, -1204, 381, -1229, 405, -1204, 405, -1203, 403, -1203, 405, -1204, 381, -1229, 1186, -422, 379, -10000]
+            - delay: 10ms
+
+  - platform: template
+    name: "LED"
+    icon: "mdi:led-on"
+    on_press:
+      - repeat:
+          count: 5
+          then:
+            - remote_transmitter.transmit_raw:
+                carrier_frequency: 0Hz
+                code: [1199, -422, 381, -1229, 1185, -420, 381, -1227, 1184, -423, 1186, -423, 381, -1228, 1184, -422, 1185, -423, 406, -1207, 1183, -422, 406, -1203, 379, -1228, 381, -1230, 1183, -422, 1183, -424, 408, -1206, 379, -1227, 380, -1229, 380, -1230, 378, -1228, 379, -1229, 1184, -423, 381, -1229, 377, -10000]
+            - delay: 10ms
+
+  - platform: template
+    name: "Speed 1"
+    icon: "mdi:speedometer-slow"
+    on_press:
+      - repeat:
+          count: 5
+          then:
+            - remote_transmitter.transmit_raw:
+                carrier_frequency: 0Hz
+                code: [1195, -421, 382, -1227, 1185, -423, 381, -1229, 1183, -421, 1184, -422, 382, -1227, 1184, -423, 1188, -421, 406, -1204, 1183, -423, 406, -1207, 379, -1229, 379, -1228, 1183, -421, 1185, -421, 407, -1204, 405, -1204, 404, -1203, 380, -1231, 1185, -420, 1183, -422, 380, -1227, 1182, -421, 380, -10000]
+            - delay: 10ms
+
+  - platform: template
+    name: "Speed 2"
+    icon: "mdi:speedometer-medium"
+    on_press:
+      - repeat:
+          count: 5
+          then:
+            - remote_transmitter.transmit_raw:
+                carrier_frequency: 0Hz
+                code: [1200, -420, 404, -1201, 1184, -421, 406, -1206, 1183, -422, 1187, -421, 405, -1202, 1186, -420, 1185, -423, 408, -1205, 1182, -422, 407, -1204, 406, -1204, 405, -1202, 1187, -421, 1187, -424, 406, -1205, 406, -1203, 405, -1201, 406, -1203, 407, -1203, 1181, -423, 407, -1204, 407, -1206, 403, -10000]
+            - delay: 10ms
+
+  - platform: template
+    name: "Speed 3"
+    icon: "mdi:speedometer"
+    on_press:
+      - repeat:
+          count: 5
+          then:
+            - remote_transmitter.transmit_raw:
+                carrier_frequency: 0Hz
+                code: [1196, -418, 398, -1223, 1182, -421, 380, -1226, 1183, -423, 1186, -422, 379, -1227, 1185, -421, 1185, -424, 381, -1231, 1183, -421, 380, -1231, 378, -1230, 377, -1227, 1184, -421, 1184, -421, 381, -1228, 380, -1227, 383, -1230, 377, -1227, 379, -1229, 403, -1203, 1185, -421, 1184, -420, 377, -10000]
+            - delay: 10ms
+
+  - platform: template
+    name: "Speed 4"
+    icon: "mdi:speedometer"
+    on_press:
+      - repeat:
+          count: 5
+          then:
+            - remote_transmitter.transmit_raw:
+                carrier_frequency: 0Hz
+                code: [1195, -416, 398, -1224, 1183, -420, 380, -1225, 1186, -420, 1182, -422, 405, -1202, 1184, -423, 1187, -421, 380, -1229, 1181, -420, 406, -1206, 379, -1229, 379, -1227, 1182, -420, 1183, -423, 407, -1207, 379, -1229, 379, -1228, 379, -1227, 378, -1230, 1184, -420, 1185, -421, 380, -1228, 377, -10000]
+            - delay: 10ms
+
+  - platform: template
+    name: "Speed 5"
+    icon: "mdi:speedometer"
+    on_press:
+      - repeat:
+          count: 5
+          then:
+            - remote_transmitter.transmit_raw:
+                carrier_frequency: 0Hz
+                code: [1195, -422, 379, -1231, 1184, -422, 380, -1228, 1183, -423, 1184, -422, 405, -1207, 1183, -421, 1184, -423, 406, -1203, 1186, -421, 406, -1205, 379, -1227, 381, -1227, 1184, -423, 1184, -423, 406, -1204, 380, -1228, 406, -1205, 378, -1226, 1185, -423, 1186, -421, 1184, -423, 380, -1231, 377, -10000]
+            - delay: 10ms
+
+  - platform: template
+    name: "Speed 6"
+    icon: "mdi:speedometer"
+    on_press:
+      - repeat:
+          count: 5
+          then:
+            - remote_transmitter.transmit_raw:
+                carrier_frequency: 0Hz
+                code: [1201, -418, 377, -1226, 1185, -421, 406, -1202, 1186, -421, 1185, -423, 406, -1206, 1183, -420, 1184, -425, 406, -1206, 1185, -422, 406, -1205, 404, -1202, 407, -1204, 1183, -422, 1182, -423, 408, -1207, 404, -1202, 405, -1202, 406, -1204, 406, -1205, 1184, -422, 1184, -422, 1186, -421, 380, -10000]
+            - delay: 10ms
 
 text_sensor:
   - platform: template
